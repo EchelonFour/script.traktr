@@ -14,6 +14,8 @@ __status__ = "Production"
 
 __settings__ = xbmcaddon.Addon( "script.traktr" )
 
+rating_type = None
+
 def rating_check(current_video, watched_time, total_time, playlist_length):
     """Check if a video should be rated and if so launches the correct rating window"""
     settings = xbmcaddon.Addon("script.traktr")
@@ -43,34 +45,48 @@ def rate_movie(movieid=None, imdbid=None, title=None, year=None):
         title = match['title']
         year = match['year']
 
-    if utilities.getTraktRatingType() == "advanced":
+    current_rating = utilities.getMovieRatingFromTrakt(imdbid, title, year)
+    if current_rating and __settings__.getSetting("rate_already_rated") == 'false':
+        #already rating on trakt
+        return
+    if get_rating_type() == "advanced":
         gui = windows.RateMovieDialog("rate_advanced.xml", __settings__.getAddonInfo('path'))
     else:
         gui = windows.RateMovieDialog("rate.xml", __settings__.getAddonInfo('path'))
 
-    gui.initDialog(imdbid, title, year, utilities.getMovieRatingFromTrakt(imdbid, title, year))
+    gui.initDialog(imdbid, title, year, current_rating)
     gui.doModal()
     del gui
 
 
 def rate_episode(episode_id):
     """Launches the episode rating dialogue"""
-    match = utilities.getEpisodeDetailsFromXbmc(episode_id, ['showtitle', 'season', 'episode'])
-    if not match:
+    episode_match = utilities.getEpisodeDetailsFromXbmc(episode_id, ['showtitle', 'season', 'episode', 'tvshowid'])
+    show_match = utilities.getTVShowDetailsFromXBMC(episode_match['tvshowid'], ['year', 'imdbnumber'])
+    if not episode_match or not show_match:
         #add error message here
         return
+    tvdbid = show_match['imdbnumber']
+    title = episode_match['showtitle']
+    year = show_match['year']
+    season = episode_match['season']
+    episode = episode_match['episode']
 
-    tvdbid = None #match['tvdbnumber']
-    title = match['showtitle']
-    year = None #match['year']
-    season = match['season']
-    episode = match['episode']
-
-    if utilities.getTraktRatingType() == "advanced":
+    current_rating = utilities.getEpisodeRatingFromTrakt(tvdbid, title, year, season, episode)
+    if current_rating and __settings__.getSetting("rate_already_rated") == 'false':
+        #already rating on trakt
+        return
+    if get_rating_type() == "advanced":
         gui = windows.RateEpisodeDialog("rate_advanced.xml", __settings__.getAddonInfo('path'))
     else:
         gui = windows.RateEpisodeDialog("rate.xml", __settings__.getAddonInfo('path'))
 
-    gui.initDialog(tvdbid, title, year, season, episode, utilities.getEpisodeRatingFromTrakt(tvdbid, title, year, season, episode))
+    gui.initDialog(tvdbid, title, year, season, episode, current_rating)
     gui.doModal()
     del gui
+
+def get_rating_type():
+    global rating_type
+    if not rating_type:
+        rating_type = utilities.getTraktRatingType()
+    return rating_type

@@ -324,6 +324,27 @@ def getEpisodeDetailsFromXbmc(libraryId, fields):
         Debug("getEpisodeDetailsFromXbmc: KeyError: result['result']['episodedetails']")
         return None
 
+# get a single TVShow from xbmc given the id
+def getTVShowDetailsFromXBMC(tvshowid, fields):
+    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetTVShowDetails', 'params':{'tvshowid': tvshowid, 'properties': fields}, 'id': 1})
+
+    result = xbmc.executeJSONRPC(rpccmd)
+    result = json.loads(result)
+
+    # check for error
+    try:
+        error = result['error']
+        Debug("getTVShowDetailsFromXBMC: " + str(error))
+        return None
+    except KeyError:
+        pass # no error
+
+    try:
+        return result['result']['tvshowdetails']
+    except KeyError:
+        Debug("getTVShowDetailsFromXBMC: KeyError: result['result']")
+        return None
+
 # get movies from XBMC
 def getMoviesFromXBMC():
     rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetMovies', 'params':{'properties': ['title', 'year', 'originaltitle', 'imdbnumber', 'playcount', 'lastplayed']}, 'id': 1})
@@ -625,13 +646,16 @@ def getEpisodeRatingFromTrakt(tvdbid, title, year, season, episode):
     if tvdbid == "" or tvdbid == None:
         return None #would be nice to be smarter in this situation
 
-    data = traktJsonRequest('POST', '/show/episode/summary.json/%%API_KEY%%/'+str(tvdbid)+"/"+season+"/"+episode)
-    if data == None:
+    data = traktJsonRequest('POST', '/show/episode/summary.json/%%API_KEY%%/'+str(tvdbid)+"/"+str(season)+"/"+str(episode))
+    if data == None or 'episode' not in data:
         Debug("Error in request from 'getEpisodeRatingFromTrakt()'")
         return None
-
-    if 'rating' in data:
-        return data['rating']
+    
+    if 'rating_advanced' in data['episode']:
+        return data['episode']['rating_advanced']
+    
+    if 'rating' in data['episode']:
+        return data['episode']['rating']
 
     print data
     Debug("Error in request from 'getEpisodeRatingFromTrakt()'")

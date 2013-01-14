@@ -17,6 +17,7 @@
     <string id="22">Rate TV show episodes after watching</string>
     <string id="23">Rate each playlist item</string>
     <string id="24">Minimum percent watched to display rate dialog</string>
+    <string id="25">Re-rate items already rated on Trakt</string>
 
     <string id="30">Scrobbling</string>
     <string id="31">Scrobble movies</string>
