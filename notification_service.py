@@ -39,12 +39,11 @@ class NotificationService(threading.Thread):
             return
 
         if notification['method'] == 'Player.OnStop':
-            self._scrobbler.playback_ended()
+            if 'data' in notification['params']:
+                self._scrobbler.playback_ended(notification['params']['data'])
         elif notification['method'] == 'Player.OnPlay':
             if 'data' in notification['params'] and 'item' in notification['params']['data'] and 'id' in notification['params']['data']['item'] and 'type' in notification['params']['data']['item']:
                 self._scrobbler.playback_started(notification['params']['data'])
-        elif notification['method'] == 'Player.OnPause':
-            self._scrobbler.playback_paused()
         elif notification['method'] == 'System.OnQuit':
             self.abort_requested = True
 

@@ -28,7 +28,6 @@ class Scrobbler(threading.Thread):
 
         self._total_time = 1
         self._watched_time = 0
-        self._start_time = 0
         self._current_video = None
         self._pinging = False
         self._playlist_length = 1
@@ -44,9 +43,7 @@ class Scrobbler(threading.Thread):
                 count += 1
                 if count >= 100:
                     Debug("[Scrobbler] Pinging watching "+str(self._current_video))
-                    tmp = time.time()
-                    self._watched_time += tmp - self._start_time
-                    self._start_time = tmp
+                    self._watched_time = xbmc.Player().getTime()
                     self._started_watching()
                     count = 0
             else:
@@ -69,11 +66,11 @@ class Scrobbler(threading.Thread):
                     self._total_time = xbmc.Player().getTotalTime()
                     if self._total_time == 0:
                         if self._current_video['type'] == 'movie':
-                            self._total_time = 90
+                            self._total_time = 90*60
                         elif self._current_video['type'] == 'episode':
-                            self._total_time = 30
+                            self._total_time = 30*60
                         else:
-                            self._total_time = 1
+                            self._total_time = 1*60
                     self._playlist_length = utilities.getPlaylistLengthFromXBMCPlayer(data['player']['playerid'])
                     if (self._playlist_length == 0):
                         Debug("[Scrobbler] Warning: Cant find playlist length?!, assuming that this item is by itself")
@@ -81,36 +78,34 @@ class Scrobbler(threading.Thread):
                 except:
                     Debug("[Scrobbler] Suddenly stopped watching item, or error: " + str(sys.exc_info()[0]))
                     self._current_video = None
-                    self._start_time = 0
                     return
-                self._start_time = time.time()
                 self._started_watching()
                 self._pinging = True
             else:
                 self._current_video = None
-                self._start_time = 0
 
-
-    def playback_paused(self):
-        if self._start_time != 0:
-            self._watched_time += time.time() - self._start_time
-            Debug("[Scrobbler] Paused after: "+str(self._watched_time))
-            self._start_time = 0
-
-
-    def playback_ended(self):
-        if self._start_time != 0:
-            if self._current_video == None:
-                Debug("[Scrobbler] Warning: Playback ended but video forgotten")
-                return
-            self._watched_time += time.time() - self._start_time
-            self._pinging = False
-            if self._watched_time != 0:
-                if 'type' in self._current_video and 'id' in self._current_video:
-                    self._check()
-                    rating.rating_check(self._current_video, self._watched_time, self._total_time, self._playlist_length)
-                self._watched_time = 0
-            self._start_time = 0
+    def playback_ended(self, data):
+        self._current_video = data['item']
+        if self._current_video == None or 'type' not in self._current_video or 'id' not in self._current_video:
+            Debug("[Scrobbler] Warning: Playback ended but video forgotten")
+            return
+        if data['end']:
+            self._watched_time = self._total_time
+        else:
+            if self._current_video['type'] == 'movie':
+                details = utilities.getMovieDetailsFromXbmc(self._current_video['id'], ['resume'])
+                self._watched_time = details['resume']['position']
+            elif self._current_video['type'] == 'episode':
+                details = utilities.getEpisodeDetailsFromXbmc(self._current_video['id'], ['resume'])
+                self._watched_time = details['resume']['position']
+            else:
+                self._watched_time =  self._total_time
+        Debug('[Scrobbler] Stopped watching')
+        self._pinging = False
+        if self._watched_time != 0:
+            self._check()
+            rating.rating_check(self._current_video, self._watched_time, self._total_time, self._playlist_length)
+            self._watched_time = 0
 
 
     def _started_watching(self):
